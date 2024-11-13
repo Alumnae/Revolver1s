@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Style for FAB shape -->
+    <style name="FABShape">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
+    </style>
+
+
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Other theme attributes -->
+
+        <!-- Set the status bar color to match the app bar color -->
+        <item name="android:statusBarColor">@color/primary</item>
+
+        <!-- Optional: Make the status bar translucent, so the app bar can blend with it -->
+        <item name="android:windowTranslucentStatus">true</item>
+
+    </style>
+</resources>
