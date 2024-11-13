@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity() {
             // Validate the input
             if (inputText.isNotEmpty()) {
                 intervalInSeconds = inputText.toLong()
-                if (intervalInSeconds >= 20) {
+                if (intervalInSeconds >= 10) {
                     resultText.text = "Switching eSIM every $intervalInSeconds seconds."
                     val editor = sharedPreferences.edit()
                     editor.putLong("interval", intervalInSeconds)
@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                     enqueue()
                 } else {
                     // Invalid input (not a positive number)
-                    Toast.makeText(this, "Please enter a valid positive number.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Please enter a number greater than 10.", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 // Input is empty
@@ -149,6 +149,11 @@ class MainActivity : AppCompatActivity() {
                 for (i in 1..simSlots) {
                     if (simSlotIds["SIM$i"] != null) {
                         val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
+                        if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
+                            val edit = sharedPreferences.edit()
+                            edit.putBoolean("SIM$i", simSlotN.isChecked)
+                            edit.apply()
+                        }
                         simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
                     }
                 }
