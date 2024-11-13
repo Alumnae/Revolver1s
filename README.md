@@ -1,5 +1,7 @@
 # Revolver
 
+Download: [Releases](https://github.com/iebb/Revolver/releases)
+
 Periodically switch your active eSIM profiles.
 
 Enable/Disable Notifications will also be deleted.
