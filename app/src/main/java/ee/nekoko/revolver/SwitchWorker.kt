@@ -6,7 +6,6 @@ import android.se.omapi.SEService
 import android.se.omapi.Session
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity.MODE_PRIVATE
-import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
@@ -108,10 +107,10 @@ class SwitchWorker(context: Context, workerParams: WorkerParameters) : Worker(co
         // notifications: '81e2910003bf2800'
         // response:
         // 81e2910003bf2800
-        var notificationResponse = transmitContinued(chan, "81e2910003bf2800")
+        val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
         Log.e(TAG, "notificationResponse: $notificationResponse")
         var index = notificationResponse.indexOf("bf2f")
-        var pendingDeleteList =mutableListOf<Triple<String, String, Pair<String, String>>>()
+        val pendingDeleteList =mutableListOf<Triple<String, String, Pair<String, String>>>()
         while (index != -1) {
             index += 4
             val blockLengthHex = notificationResponse.substring(index, index + 2)

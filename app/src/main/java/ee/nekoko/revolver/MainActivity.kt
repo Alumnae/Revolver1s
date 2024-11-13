@@ -16,7 +16,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import androidx.lifecycle.Observer
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -31,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var resultText: TextView
     private lateinit var nextSwitch: TextView
     private lateinit var fab: FloatingActionButton
-    private lateinit var toolbar: Toolbar
     private lateinit var simCheckboxesContainer: LinearLayout
     private var intervalInSeconds: Long = 0
     private var nextSwitchTime: Long = 0 // don't init
