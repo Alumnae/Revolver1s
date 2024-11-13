@@ -9,5 +9,4 @@ for filename in outputs/*.apk; do
        --ks signer/sakura_key/sakurasim.keystore --ks-pass pass:sakurasim --next-signer \
        --ks signer/CommunityKey/CommunityKey.jks -ks-pass pass:CommunityKey --next-signer \
        --ks signer/9esim_key/9eSIMCommunityKey.jks -ks-pass pass:147258369 $filename
-  stat -l $filename
 done
