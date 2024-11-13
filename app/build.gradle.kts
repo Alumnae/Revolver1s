@@ -11,8 +11,8 @@ android {
         applicationId = "ee.nekoko.revolver"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = file("../version.txt").readText().trim().toInt()
+        versionName = "1." + file("../version.txt").readText().trim()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -51,14 +51,16 @@ android {
     }
 }
 
+
 dependencies {
-    implementation(libs.androidx.work.runtime.ktx) // Add WorkManager dependency
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

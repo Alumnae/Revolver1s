@@ -19,7 +19,7 @@ import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.Observer
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var saveButton: Button
     private lateinit var resultText: TextView
     private lateinit var nextSwitch: TextView
-    private lateinit var fab: ExtendedFloatingActionButton
+    private lateinit var fab: FloatingActionButton
     private lateinit var toolbar: Toolbar
     private lateinit var simCheckboxesContainer: LinearLayout
     private var intervalInSeconds: Long = 0
@@ -129,16 +129,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateFABIcon(fab: ExtendedFloatingActionButton) {
+    private fun updateFABIcon(fab: FloatingActionButton) {
         if (isPlaying) {
-            fab.setText("▇")
+            fab.setImageResource(android.R.drawable.ic_media_pause)
         } else {
-            fab.setText("▶")
+            fab.setImageResource(android.R.drawable.ic_media_play)
         }
     }
 
     private fun startRecurringTimer() {
-        val t = this
         runnable = object : Runnable {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
@@ -157,22 +156,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 // Post the runnable to run again after 1 second
                 handler.postDelayed(this, 1000)
-
-
-                WorkManager.getInstance(applicationContext).getWorkInfosByTagLiveData("SwitchWorker")
-                    .observe(t, Observer { workInfos ->
-                        workInfos?.forEach { workInfo ->
-                            if (workInfo.state.isFinished) {
-                                val log = workInfo.outputData.getString("log")
-                                if (log != null) {
-                                    println(log)
-                                }
-                            }
-                        }
-
-                    })
-
-
             }
         }
 

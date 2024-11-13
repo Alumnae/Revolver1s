@@ -47,15 +47,8 @@ fun swapEveryTwoCharacters(input: String): String {
 class SwitchWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
 
     var _seService: SEService? = null
-    var _response: String = ""
-
-    fun log(severity: String, message: String) {
-        _response += "[$severity] $message\n"
-    }
 
     override fun doWork(): Result {
-
-
         val lock = Mutex()
         var service: SEService? = null
         val callback = {
@@ -90,12 +83,7 @@ class SwitchWorker(context: Context, workerParams: WorkerParameters) : Worker(co
         val editor = sharedPreferences.edit()
         editor.putLong("nextSwitch", nextSwitchTime)
         editor.apply()
-
-        // Pass the log message as output data
-        val outputData = Data.Builder()
-            .putString("log", _response)
-            .build()
-        return Result.success(outputData)
+        return Result.success()
     }
 
     fun transmitContinued(chan: Channel, apdu: String): String {
@@ -196,7 +184,6 @@ class SwitchWorker(context: Context, workerParams: WorkerParameters) : Worker(co
                         (pendingDelete.first.length / 2).toString(16).padStart(2, '0')
                         + pendingDelete.first
             )
-            log("I", "Deleting Notification #${pendingDelete.third.second}")
             Log.i(TAG, "Deleting #${pendingDelete.third.second} [${pendingDelete.third.first}] Delete Response: $deleteResponse")
         }
 
@@ -233,7 +220,6 @@ class SwitchWorker(context: Context, workerParams: WorkerParameters) : Worker(co
                 if (row.second) isNext = true
             }
             Log.w(TAG, "Switching To: ${swapEveryTwoCharacters(switchTo)}")
-            log("I", "Switching To: $switchTo")
             val sharedPreferences = applicationContext.getSharedPreferences("eSimPreferences", MODE_PRIVATE)
             val editor = sharedPreferences.edit()
             editor.putString("next_${name}", swapEveryTwoCharacters(switchTo))
