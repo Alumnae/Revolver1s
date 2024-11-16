@@ -2,7 +2,7 @@
 
 ./gradlew app:clean app:assembleRelease
 mkdir -p outputs/
-cp -fv app/build/outputs/apk/release/app-release.apk outputs/ee.nekoko.revolver.apk
+cp -fv app/build/outputs/apk/release/app-release.apk outputs/ee.nekoko.revolverRevolver.apk
 
 for filename in outputs/*.apk; do
   java -jar signer/apksigner.jar sign --v1-signing-enabled --v2-signing-enabled --v3-signing-enabled=false \
