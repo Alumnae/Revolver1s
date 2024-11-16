@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity() {
             // Validate the input
             if (inputText.isNotEmpty()) {
                 intervalInSeconds = inputText.toLong()
-                if (intervalInSeconds >= 10) {
+                if (intervalInSeconds >= 1) {
                     resultText.text = "Switching eSIM every $intervalInSeconds seconds."
                     val editor = sharedPreferences.edit()
                     editor.putLong("interval", intervalInSeconds)
@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                     enqueue()
                 } else {
                     // Invalid input (not a positive number)
-                    Toast.makeText(this, "Please enter a number greater than 10.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Please enter a number greater than 1.", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 // Input is empty
