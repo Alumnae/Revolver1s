@@ -1,4 +1,4 @@
-package ee.nekoko.revolver
+package ee.nekoko.revolver1s
 
 import android.content.SharedPreferences
 import android.os.Bundle
