@@ -1,4 +1,4 @@
-package ee.nekoko.revolver
+package ee.nekoko.revolver1s
 
 import org.junit.Test
 
