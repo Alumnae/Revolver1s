@@ -1,6 +1,6 @@
-# Revolver
+# Revolver1s fork of Revolver
 
-Download: [Releases](https://github.com/iebb/Revolver/releases)
+
 
 Periodically switch your active eSIM profiles.
 
