@@ -1,4 +1,4 @@
-package ee.nekoko.revolver
+package ee.nekoko.revolver1s
 
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -75,10 +75,10 @@ class MainActivity : AppCompatActivity() {
             // Get the user input as a string
             val inputText = intervalInput.text.toString()
 
-            // Validate the input
+            // Validate the input changed to 1s
             if (inputText.isNotEmpty()) {
                 intervalInSeconds = inputText.toLong()
-                if (intervalInSeconds >= 10) {
+                if (intervalInSeconds >= 1) {
                     resultText.text = "Switching eSIM every $intervalInSeconds seconds."
                     val editor = sharedPreferences.edit()
                     editor.putLong("interval", intervalInSeconds)
@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                     enqueue()
                 } else {
                     // Invalid input (not a positive number)
-                    Toast.makeText(this, "Please enter a number greater than 10.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Please enter a number greater than 1.", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 // Input is empty
