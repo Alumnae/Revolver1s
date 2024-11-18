@@ -223,7 +223,7 @@ class SwitchWorker(context: Context, workerParams: WorkerParameters) : Worker(co
             val editor = sharedPreferences.edit()
             editor.putString("next_${name}", swapEveryTwoCharacters(switchTo))
             editor.apply()
-            transmitContinued(chan, "81e2910014bf3111a00c5a0a" + switchTo + "810101")
+            transmitContinued(chan, "81e2910014bf3111a00c5a0a" + switchTo + "810100")
         }
 
 
