@@ -3,12 +3,8 @@ package ee.nekoko.revolver1s
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
-import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
-import android.se.omapi.Channel
-import android.se.omapi.SEService
-import android.se.omapi.Session
 import android.telephony.SubscriptionManager
 import android.util.Log
 import android.view.View
@@ -23,6 +19,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
@@ -38,7 +35,6 @@ class MainActivity : AppCompatActivity() {
     private var runnable: Runnable? = null
     private var simSlots: Int = 0
     private var simSlotIds: MutableMap<String, Int> = mutableMapOf()
-    private var _seService: SEService? = null
 
     // TAG for logging
     companion object {
@@ -50,14 +46,17 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val subscriptionManager = SubscriptionManager.from(applicationContext)
-        simSlots = subscriptionManager.getActiveSubscriptionInfoCountMax()
+        simSlots = subscriptionManager.activeSubscriptionInfoCountMax // Correct use of property
+        // Initialize views
         intervalInput = findViewById(R.id.intervalInput)
         saveButton = findViewById(R.id.saveButton)
         resultText = findViewById(R.id.resultText)
         nextSwitch = findViewById(R.id.nextSwitch)
         fab = findViewById(R.id.fab)
         simCheckboxesContainer = findViewById(R.id.simCheckboxesContainer)
-        sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
+
+        // Initialize SharedPreferences
+        sharedPreferences = getSharedPreferences("eSimPreferences", Context.MODE_PRIVATE)
         intervalInMilliSeconds = sharedPreferences.getLong("interval", 1)
 
         startRecurringTimer()
@@ -66,10 +65,10 @@ class MainActivity : AppCompatActivity() {
             isPlaying = !isPlaying
             updateFABIcon(fab)
             if (isPlaying) {
-                Log.i("FAB", "Starting eSIM switching work every $intervalInMilliSeconds milliseconds")
+                Log.i(TAG, "Starting eSIM switching work every $intervalInMilliSeconds milliseconds")
                 performSwitchWork()
             } else {
-                Log.i("FAB", "Stopping eSIM switching work")
+                Log.i(TAG, "Stopping eSIM switching work")
                 // Handle stopping logic if needed
             }
         }
@@ -79,7 +78,7 @@ class MainActivity : AppCompatActivity() {
         resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
         saveButton.setOnClickListener { saveInterval() }
 
-        Log.e("Main", "Main has run")
+        Log.e(TAG, "Main has run")
         performSwitchWork()
     }
 
@@ -104,14 +103,15 @@ class MainActivity : AppCompatActivity() {
     private fun initialize() {
         for (i in 1..simSlots) {
             val isChecked = sharedPreferences.getBoolean("SIM$i", true)
-            val checkBox = CheckBox(this)
-            checkBox.text = "SIM$i"
-            checkBox.id = View.generateViewId()
-            checkBox.isChecked = isChecked
-            checkBox.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            val checkBox = CheckBox(this).apply {
+                text = "SIM$i"
+                id = View.generateViewId()
+                isChecked = isChecked
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
             simSlotIds["SIM$i"] = checkBox.id
             simCheckboxesContainer.addView(checkBox)
         }
@@ -133,9 +133,9 @@ class MainActivity : AppCompatActivity() {
                 for (i in 1..simSlots) {
                     val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
                     if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
-                        val edit = sharedPreferences.edit()
-                        edit.putBoolean("SIM$i", simSlotN.isChecked)
-                        edit.apply()
+                        val editor = sharedPreferences.edit()
+                        editor.putBoolean("SIM$i", simSlotN.isChecked)
+                        editor.apply()
                     }
                     simSlotN.text = "SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}"
                 }
@@ -153,7 +153,7 @@ class MainActivity : AppCompatActivity() {
             runBlocking {
                 lock.withLock {
                     Log.d(TAG, "SE service is connected!")
-                    _seService = service
+                    // Handle SEService connection and operations
                     listReaders(service!!)
                 }
             }
@@ -441,7 +441,7 @@ var index = notificationResponse.indexOf("bf2f")
 
     override fun onPause() {
         super.onPause()
-        handler.removeCallbacks(runnable!!)
+        runnable?.let { handler.removeCallbacks(it) }
     }
 
     override fun onResume() {
