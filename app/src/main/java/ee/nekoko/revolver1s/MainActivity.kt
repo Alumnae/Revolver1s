@@ -158,7 +158,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 // Post the runnable to run again after 1 millisecond
-                handler.postDelayed(this, 1)
+                handler.postDelayed(this, 1000)
             }
         }
 
