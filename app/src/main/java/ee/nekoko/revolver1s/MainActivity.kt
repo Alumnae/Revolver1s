@@ -101,7 +101,7 @@ class MainActivity : AppCompatActivity() {
     // Method to dynamically add SIM checkboxes (SIM1 to SIM5)
     private fun enqueue() {
         WorkManager.getInstance(applicationContext).cancelAllWork()
-        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<SwitchWorker>().addTag("SwitchWorker").setInitialDelay(intervalInMilliSeconds, TimeUnit.SECONDS).build()
+        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<SwitchWorker>().addTag("SwitchWorker").setInitialDelay(intervalInMilliSeconds, TimeUnit.MILLISECONDS).build()
         WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
         nextSwitchTime = System.currentTimeMillis()
         val editor = sharedPreferences.edit()
