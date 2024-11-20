@@ -19,18 +19,14 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.IOException
-import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
     private var isPlaying = true
-    private var countDownTimer: CountDownTimer? = null
     private lateinit var intervalInput: EditText
     private lateinit var saveButton: Button
     private lateinit var resultText: TextView
@@ -38,14 +34,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fab: FloatingActionButton
     private lateinit var simCheckboxesContainer: LinearLayout
     private var intervalInMilliSeconds: Long = 0
-    private var nextSwitchTime: Long = 0 // don't init
-    private var handler: Handler = Handler(Looper.getMainLooper()) // To run tasks every second
+    private var handler: Handler = Handler(Looper.getMainLooper())
     private var runnable: Runnable? = null
     private var simSlots: Int = 0
     private var simSlotIds: MutableMap<String, Int> = mutableMapOf()
-
-    // SEService for smart card interaction
     private var _seService: SEService? = null
+
+    // TAG for logging
+    companion object {
+        private val TAG = MainActivity::class.java.name
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,7 +59,6 @@ class MainActivity : AppCompatActivity() {
         simCheckboxesContainer = findViewById(R.id.simCheckboxesContainer)
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
         intervalInMilliSeconds = sharedPreferences.getLong("interval", 1)
-        window.statusBarColor = resources.getColor(R.color.primary)
 
         startRecurringTimer()
 
@@ -73,7 +70,7 @@ class MainActivity : AppCompatActivity() {
                 performSwitchWork()
             } else {
                 Log.i("FAB", "Stopping eSIM switching work")
-                // Here you would cancel any ongoing work if needed
+                // Handle stopping logic if needed
             }
         }
 
@@ -143,7 +140,7 @@ class MainActivity : AppCompatActivity() {
                     simSlotN.text = "SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}"
                 }
 
-                handler.postDelayed(this, 1) // Update every millisecond
+                handler.postDelayed(this, 1000) // Update every second for better performance
             }
         }
         handler.post(runnable!!)
@@ -167,8 +164,8 @@ class MainActivity : AppCompatActivity() {
                 lock.withLock {
                     try {
                         service = SEService(applicationContext, { it.run() }, callback)
-                    } catch (_: Exception) {
-                        Log.e(TAG, "Error initializing SEService", _)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error initializing SEService", e)
                     }
                 }
             }
@@ -181,7 +178,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "ListReaders Task executed at: ${System.currentTimeMillis()}")
         if (seService.isConnected) {
             for (reader in seService.readers) {
-                                if (sharedPreferences.getBoolean(reader.name, true) == false) {
+                if (sharedPreferences.getBoolean(reader.name, true) == false) {
                     Log.d(TAG, "Skipping ${reader.name}")
                     continue
                 }
@@ -191,30 +188,28 @@ class MainActivity : AppCompatActivity() {
                     session.closeChannels()
 
                     val atr = session.getATR()
-                    Log.i(TAG, reader.name + " ATR: " + atr + " Session: " + session)
+                    Log.i(TAG, "${reader.name} ATR: $atr Session: $session")
                     val chan = session.openLogicalChannel(hexStringToByteArray("A0000005591010FFFFFFFF8900000100"))!!
-                    Log.i(TAG, reader.name + " Opened Channel")
+                    Log.i(TAG, "${reader.name} Opened Channel")
                     val response: ByteArray = chan.getSelectResponse()!!
-                    Log.i(TAG,"Opened logical channel: ${response}")
+                    Log.i(TAG, "Opened logical channel: $response")
                     val resp1 = chan.transmit(hexStringToByteArray("81E2910006BF3E035C015A"))
-                    Log.i(TAG,"Transmit Response: ${resp1.toHex()}")
+                    Log.i(TAG, "Transmit Response: ${resp1.toHex()}")
+                    
+                    // Check if we received a valid response
                     if (resp1[0] == 0xbf.toByte()) {
                         try {
-                            Log.i(
-                                TAG,
-                                "Slot: ${reader.name} EID: ${
-                                    resp1.toHex().substring(10, 10 + 32)
-                                }"
-                            )
+                            Log.i(TAG, "Slot: ${reader.name} EID: ${resp1.toHex().substring(10, 10 + 32)}")
                             switchToNext(chan, reader.name)
                             chan.close()
                             session.closeChannels()
                             session.close()
                         } catch (e: Exception) {
-                            Log.e(TAG,"Error when switching", e)
+                            Log.e(TAG, "Error when switching", e)
                         }
                     } else {
-                        Log.e(TAG,"Slot: ${reader.name} No EID Found")
+                        Log.e(TAG, "Slot: ${reader.name} No EID Found")
+                        val editor = sharedPreferences.edit()
                         editor.putString("next_${reader.name}", "No EID Found")
                         editor.apply()
                     }
@@ -250,11 +245,9 @@ class MainActivity : AppCompatActivity() {
                     editor.apply()
                     // throw e
                 } catch (e: Exception) {
-                    Log.e(
-                        TAG,
-                        "Slot ${reader.name} failed. [EX]"
-                    )
-                    editor.putString("next_${reader.name}", "Failed")
+                    Log.e(TAG, "Error with reader ${reader.name}", e)
+                    val editor = sharedPreferences.edit()
+                    editor.putString("next_${reader.name}", e.message ?: "Error")
                     editor.apply()
                 }
             }
@@ -273,17 +266,11 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, "Transmit Response: ${combinedResp.toHex()}")
         return combinedResp.toHex()
     }
+
     private fun switchToNext(chan: Channel, name: String) {
-
-
-        // '81e2910014bf3111a00c5a0a 984474560000309140f1 81 01 01'
-
-        // notifications: '81e2910003bf2800'
-        // response:
-        // 81e2910003bf2800
         val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
         Log.e(TAG, "notificationResponse: $notificationResponse")
-        var index = notificationResponse.indexOf("bf2f")
+var index = notificationResponse.indexOf("bf2f")
         val pendingDeleteList =mutableListOf<Triple<String, String, Pair<String, String>>>()
         while (index != -1) {
             index += 4
@@ -441,6 +428,7 @@ class MainActivity : AppCompatActivity() {
     }
     return result.toString()
 }
+
     private fun hexStringToByteArray(hex: String): ByteArray {
         require(hex.length % 2 == 0) { "Hex string must have an even length" }
         return ByteArray(hex.length / 2) { i ->
@@ -451,13 +439,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
 
-    companion object {
-        private val TAG = MainActivity::class.java.name
-    }
-
     override fun onPause() {
         super.onPause()
-        countDownTimer?.cancel()
         handler.removeCallbacks(runnable!!)
     }
 
