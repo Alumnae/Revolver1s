@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity() {
         runnable = object : Runnable {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
-                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime))
+                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) /1000)
                 if (isPlaying) {
                     nextSwitch.setText("Next switch in $timeRemaining milliseconds")
                 } else {
