@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
         WorkManager.getInstance(applicationContext).cancelAllWork()
         val oneTimeWorkRequest = OneTimeWorkRequestBuilder<SwitchWorker>().addTag("SwitchWorker").setInitialDelay(intervalInMilliSeconds, TimeUnit.SECONDS).build()
         WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
-        nextSwitchTime = System.currentTimeMillis() + intervalInMilliSeconds 
+        nextSwitchTime = System.currentTimeMillis()
         val editor = sharedPreferences.edit()
         editor.putLong("nextSwitch", nextSwitchTime)
         editor.apply()
@@ -158,7 +158,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 // Post the runnable to run again after 1 millisecond
-                handler.postDelayed(this, 1000)
+                handler.postDelayed(this, 1)
             }
         }
 
