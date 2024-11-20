@@ -9,25 +9,17 @@ import android.se.omapi.Session
 import android.util.Log
 import android.view.View
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
-import androidx.work.WorkManager
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
-    private var isPlaying = true
-    private lateinit var intervalInput: EditText
-    private lateinit var saveButton: Button
-    private lateinit var resultText: TextView
-    private lateinit var nextSwitch: TextView
     private var intervalInMilliSeconds: Long = 0
     private var _seService: SEService? = null
     private val lock = Mutex()
@@ -36,12 +28,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        intervalInput = findViewById(R.id.intervalInput)
-        saveButton = findViewById(R.id.saveButton)
-        resultText = findViewById(R.id.resultText)
-        nextSwitch = findViewById(R.id.nextSwitch)
-        sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
+        val intervalInput: EditText = findViewById(R.id.intervalInput)
+        val saveButton: Button = findViewById(R.id.saveButton)
+        val resultText: TextView = findViewById(R.id.resultText)
+        val nextSwitch: TextView = findViewById(R.id.nextSwitch)
 
+        sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
         intervalInMilliSeconds = sharedPreferences.getLong("interval", 1)
         intervalInput.setText(intervalInMilliSeconds.toString())
         resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
@@ -52,9 +44,7 @@ class MainActivity : AppCompatActivity() {
                 intervalInMilliSeconds = inputText.toLong()
                 if (intervalInMilliSeconds >= 1) {
                     resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
-                    val editor = sharedPreferences.edit()
-                    editor.putLong("interval", intervalInMilliSeconds)
-                    editor.apply()
+                    sharedPreferences.edit().putLong("interval", intervalInMilliSeconds).apply()
                     enqueueSwitch()
                 } else {
                     Toast.makeText(this, "Please enter a number greater than 1.", Toast.LENGTH_SHORT).show()
@@ -64,12 +54,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        Log.e("Main", "Main has run")
         enqueueSwitch()
     }
 
     private fun enqueueSwitch() {
-        // Start the switching process
         if (_seService == null) {
             runBlocking {
                 lock.withLock {
@@ -219,9 +207,7 @@ class MainActivity : AppCompatActivity() {
                 if (row.second) isNext = true
             }
             Log.w("MainActivity", "Switching To: ${swapEveryTwoCharacters(switchTo)}")
-            val editor = sharedPreferences.edit()
-            editor.putString("next_${name}", swapEveryTwoCharacters(switchTo))
-            editor.apply()
+            sharedPreferences.edit().putString("next_${name}", swapEveryTwoCharacters(switchTo)).apply()
             transmitContinued(chan, "81e2910014bf3111a00c5a0a" + switchTo + "810100")
         }
     }
@@ -247,7 +233,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun String.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
+    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
     private fun swapEveryTwoCharacters(input: String): String {
         val result = StringBuilder()
