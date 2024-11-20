@@ -74,7 +74,7 @@ class SwitchWorker(context: Context, workerParams: WorkerParameters) : Worker(co
         }
 
         val sharedPreferences = applicationContext.getSharedPreferences("eSimPreferences", MODE_PRIVATE)
-        val intervalInMilliSeconds = sharedPreferences.getLong("interval", 10 * 60)
+        val intervalInMilliSeconds = sharedPreferences.getLong("interval", 1 )
         val oneTimeWorkRequest = OneTimeWorkRequestBuilder<SwitchWorker>().setInitialDelay(intervalInMilliSeconds, TimeUnit.MILLISECONDS).build()
         WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
 

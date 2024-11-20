@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         fab = findViewById(R.id.fab)
         simCheckboxesContainer = findViewById(R.id.simCheckboxesContainer)
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
-        intervalInMilliSeconds = sharedPreferences.getLong("interval", 120)
+        intervalInMilliSeconds = sharedPreferences.getLong("interval", 1 )
         window.statusBarColor = resources.getColor(R.color.primary)
 
         startRecurringTimer()
