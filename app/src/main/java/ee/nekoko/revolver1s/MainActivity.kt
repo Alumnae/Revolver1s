@@ -31,7 +31,6 @@ class MainActivity : AppCompatActivity() {
         val intervalInput: EditText = findViewById(R.id.intervalInput)
         val saveButton: Button = findViewById(R.id.saveButton)
         val resultText: TextView = findViewById(R.id.resultText)
-        val nextSwitch: TextView = findViewById(R.id.nextSwitch)
 
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
         intervalInMilliSeconds = sharedPreferences.getLong("interval", 1)
@@ -69,7 +68,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } else {
-            listReaders(_seService!!)
+            _seService?.let { listReaders(it) }
         }
     }
 
@@ -99,8 +98,7 @@ class MainActivity : AppCompatActivity() {
                         Log.e("MainActivity", "${reader.name} No EID Found")
                     }
                 } catch (e: Exception) {
-                    Log.e("MainActivity", "Error with reader ${reader.name}", e)
-                }
+                    Log.e("MainActivity", "Error with reader ${reader.name}", e }
             }
         }
     }
@@ -108,8 +106,8 @@ class MainActivity : AppCompatActivity() {
     private fun switchToNext(chan: Channel, name: String) {
         val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
         Log.e("MainActivity", "notificationResponse: $notificationResponse")
-        var index = notificationResponse.indexOf("bf2f")
         val pendingDeleteList = mutableListOf<Triple<String, String, Pair<String, String>>>()
+        var index = notificationResponse.indexOf("bf2f")
         while (index != -1) {
             index += 4
             val blockLengthHex = notificationResponse.substring(index, index + 2)
