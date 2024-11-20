@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var nextSwitch: TextView
     private lateinit var fab: FloatingActionButton
     private lateinit var simCheckboxesContainer: LinearLayout
-    private var intervalInSeconds: Long = 0
+    private var intervalInMilliSeconds: Long = 0
     private var nextSwitchTime: Long = 0 // don't init
     private var handler: Handler = Handler(Looper.getMainLooper()) // To run tasks every second
     private var runnable: Runnable? = null
@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         fab = findViewById(R.id.fab)
         simCheckboxesContainer = findViewById(R.id.simCheckboxesContainer)
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
-        intervalInSeconds = sharedPreferences.getLong("interval", 120)
+        intervalInMilliSeconds = sharedPreferences.getLong("interval", 120)
         window.statusBarColor = resources.getColor(R.color.primary)
 
         startRecurringTimer()
@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity() {
             updateFABIcon(fab)
             // Start or stop your eSIM switching work based on the play/pause state
             if (isPlaying) {
-                Log.i("FAB", "Enqueued request in $intervalInSeconds seconds")
+                Log.i("FAB", "Enqueued request in $intervalInMilliSeconds milliseconds")
                 enqueue()
             } else {
                 WorkManager.getInstance(applicationContext).cancelAllWork()
@@ -69,19 +69,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         initialize()
-        intervalInput.setText(intervalInSeconds.toString())
-        resultText.text = "Switching eSIM every $intervalInSeconds seconds."
+        intervalInput.setText(intervalInMilliSeconds.toString())
+        resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
         saveButton.setOnClickListener {
             // Get the user input as a string
             val inputText = intervalInput.text.toString()
 
             // Validate the input changed to 1s
             if (inputText.isNotEmpty()) {
-                intervalInSeconds = inputText.toLong()
-                if (intervalInSeconds >= 1) {
-                    resultText.text = "Switching eSIM every $intervalInSeconds seconds."
+                intervalInMilliSeconds = inputText.toLong()
+                if (intervalInMilliSeconds >= 1) {
+                    resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
                     val editor = sharedPreferences.edit()
-                    editor.putLong("interval", intervalInSeconds)
+                    editor.putLong("interval", intervalInMilliSeconds)
                     editor.apply()
                     enqueue()
                 } else {
@@ -101,9 +101,9 @@ class MainActivity : AppCompatActivity() {
     // Method to dynamically add SIM checkboxes (SIM1 to SIM5)
     private fun enqueue() {
         WorkManager.getInstance(applicationContext).cancelAllWork()
-        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<SwitchWorker>().addTag("SwitchWorker").setInitialDelay(intervalInSeconds, TimeUnit.SECONDS).build()
+        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<SwitchWorker>().addTag("SwitchWorker").setInitialDelay(intervalInMilliSeconds, TimeUnit.SECONDS).build()
         WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
-        nextSwitchTime = System.currentTimeMillis() + intervalInSeconds * 1000
+        nextSwitchTime = System.currentTimeMillis() + intervalInMilliSeconds 
         val editor = sharedPreferences.edit()
         editor.putLong("nextSwitch", nextSwitchTime)
         editor.apply()
@@ -139,9 +139,9 @@ class MainActivity : AppCompatActivity() {
         runnable = object : Runnable {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
-                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1000)
+                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime))
                 if (isPlaying) {
-                    nextSwitch.setText("Next switch in $timeRemaining seconds")
+                    nextSwitch.setText("Next switch in $timeRemaining milliseconds")
                 } else {
                     nextSwitch.setText("Switching paused.")
                 }
@@ -157,8 +157,8 @@ class MainActivity : AppCompatActivity() {
                         simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
                     }
                 }
-                // Post the runnable to run again after 1 second
-                handler.postDelayed(this, 1000)
+                // Post the runnable to run again after 1 millisecond
+                handler.postDelayed(this, 1)
             }
         }
 
