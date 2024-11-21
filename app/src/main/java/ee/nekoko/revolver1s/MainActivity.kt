@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity() {
             runBlocking {
                 lock.withLock {
                     try {
-                        _seService = SEService(applicationContext, { it.run() }, ::listReaders)
+                        _seService = SEService(applicationContext, { it.run() }, { seService -> listReaders(seService) })
                     } catch (e: Exception) {
                         Log.e("MainActivity", "Failed to connect to SEService", e)
                     }
@@ -98,7 +98,8 @@ class MainActivity : AppCompatActivity() {
                         Log.e("MainActivity", "${reader.name} No EID Found")
                     }
                 } catch (e: Exception) {
-                    Log.e("MainActivity", "Error with reader ${reader.name}", e }
+                    Log.e("MainActivity", "Error with reader ${reader.name}", e)  // Fixed missing parenthesis
+                }
             }
         }
     }
