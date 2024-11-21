@@ -312,12 +312,17 @@ class MainActivity : AppCompatActivity() {
     private fun startRecurringTimer() {
         runnable = object : Runnable {
             override fun run() {
-                val currentTime = System.currentTimeMillis()
-                val nextSwitchTime = currentTime + intervalInMilliSeconds
-                sharedPreferences.edit().putLong("nextSwitch", nextSwitchTime).apply()
+                 val currentTime = System.currentTimeMillis()
+                val nextSwitchTime = sharedPreferences.getLong("nextSwitch", currentTime)
 
-                val timeRemaining = (nextSwitchTime - currentTime).coerceAtLeast(0)
-                nextSwitch.text = if (isPlaying) "Next switch in $timeRemaining milliseconds" else "Switching paused."
+                // Ensure the nextSwitchTime is in the future
+                val timeRemaining = (nextSwitchTime - currentTime)
+
+                if (isPlaying) {
+                    nextSwitch.setText("Next switch in $timeRemaining milliseconds")
+                } else {
+                    nextSwitch.setText("Switching paused.")
+                }
 
                 for (i in 1..simSlots) {
                     simSlotIds["SIM$i"]?.let { id ->
