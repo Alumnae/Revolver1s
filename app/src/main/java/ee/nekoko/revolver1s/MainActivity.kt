@@ -8,6 +8,7 @@ import android.os.Looper
 import android.se.omapi.Channel
 import android.se.omapi.SEService
 import android.se.omapi.Session
+import android.telephony.SubscriptionManager
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -17,10 +18,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,20 +28,14 @@ import java.util.concurrent.TimeUnit
 fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
 fun hexStringToByteArray(hex: String): ByteArray {
     require(hex.length % 2 == 0) { "Hex string must have an even length" }
-
-    return ByteArray(hex.length / 2) { i ->
-        val index = i * 2
-        hex.substring(index, index + 2).toInt(16).toByte()
-    }
+    return ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
 }
 
 fun swapEveryTwoCharacters(input: String): String {
     val result = StringBuilder()
-
     for (i in 0 until input.length step 2) {
         if (i + 1 < input.length) {
-            result.append(input[i + 1])
-            result.append(input[i])
+            result.append(input[i + 1]).append(input[i])
         } else {
             result.append(input[i])
         }
@@ -71,7 +63,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val subscriptionManager = SubscriptionManager.from(applicationContext)
-        simSlots = subscriptionManager.getActiveSubscriptionInfoCountMax()
+        simSlots = subscriptionManager.activeSubscriptionInfoCountMax
         intervalInput = findViewById(R.id.intervalInput)
         saveButton = findViewById(R.id.saveButton)
         resultText = findViewById(R.id.resultText)
@@ -114,9 +106,26 @@ class MainActivity : AppCompatActivity() {
         startRecurringTimer()
     }
 
+    private fun initialize() {
+        for (i in 1..simSlots) {
+            val isChecked = sharedPreferences.getBoolean("SIM$i", true)
+            val checkBox = CheckBox(this)
+            checkBox.text = "SIM$i"
+            checkBox.id = View.generateViewId()
+            checkBox.isChecked = isChecked
+            checkBox.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+
+            simSlotIds["SIM$i"] = checkBox.id
+            simCheckboxesContainer.addView(checkBox)
+        }
+    }
+
     private fun enqueueSwitch() {
         // Check for SEService and list readers
-        if (_seService == null ) {
+        if (_seService == null) {
             val lock = Mutex()
             runBlocking {
                 lock.withLock {
@@ -138,8 +147,8 @@ class MainActivity : AppCompatActivity() {
             listReaders(_seService!!)
         }
 
-        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<MainActivity>().setInitialDelay(intervalInSeconds, TimeUnit.SECONDS).build()
-        WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
+        // Directly call enqueueSwitch instead of using OneTimeWorkRequestBuilder
+        enqueueSwitch()
     }
 
     private fun listReaders(seService: SEService) {
@@ -161,7 +170,7 @@ class MainActivity : AppCompatActivity() {
                     Log.i("TAG", "Transmit Response: ${resp1.toHex()}")
                     if (resp1[0] == 0xbf.toByte()) {
                         switchToNext(chan, reader.name)
-                        chan.close()
+                        chan.close ()
                         session.closeChannels()
                         session.close()
                     } else {
@@ -177,7 +186,6 @@ class MainActivity : AppCompatActivity() {
     private fun switchToNext(chan: Channel, name: String) {
         val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
         Log.e("TAG", "notificationResponse: $notificationResponse")
-        // Process notificationResponse and switch logic here...
         val pendingDeleteList = mutableListOf<Triple<String, String, Pair<String, String>>>()
         var index = notificationResponse.indexOf("bf2f")
         while (index != -1) {
@@ -308,9 +316,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateFABIcon(fab: FloatingActionButton) {
         if (isPlaying) {
-            fab.setImageResource(R.drawable.ic_pause)
+            fab.setImageResource(android.R.drawable.ic_media_pause)
         } else {
-            fab.setImageResource(R.drawable.ic_play)
+            fab.setImageResource(android.R.drawable.ic_media_play)
         }
     }
 }
