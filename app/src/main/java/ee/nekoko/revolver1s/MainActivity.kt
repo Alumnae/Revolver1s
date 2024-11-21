@@ -18,12 +18,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.work.WorkManager
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
 fun hexStringToByteArray(hex: String): ByteArray {
@@ -73,14 +73,12 @@ class MainActivity : AppCompatActivity() {
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
         intervalInSeconds = sharedPreferences.getLong("interval", 120)
 
-        fab.setOnClickListener {
+fab.setOnClickListener { 
             isPlaying = !isPlaying
             updateFABIcon(fab)
             if (isPlaying) {
                 enqueueSwitch()
-            } else {
-                WorkManager.getInstance(applicationContext).cancelAllWork()
-            }
+            } 
         }
 
         initialize()
