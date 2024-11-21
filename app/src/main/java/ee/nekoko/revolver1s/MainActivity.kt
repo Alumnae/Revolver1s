@@ -3,84 +3,147 @@ package ee.nekoko.revolver1s
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.se.omapi.Channel
 import android.se.omapi.SEService
 import android.se.omapi.Session
 import android.util.Log
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+
+fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
+fun hexStringToByteArray(hex: String): ByteArray {
+    require(hex.length % 2 == 0) { "Hex string must have an even length" }
+
+    return ByteArray(hex.length / 2) { i ->
+        val index = i * 2
+        hex.substring(index, index + 2).toInt(16).toByte()
+    }
+}
+
+fun swapEveryTwoCharacters(input: String): String {
+    val result = StringBuilder()
+
+    for (i in 0 until input.length step 2) {
+        if (i + 1 < input.length) {
+            result.append(input[i + 1])
+            result.append(input[i])
+        } else {
+            result.append(input[i])
+        }
+    }
+    return result.toString()
+}
 
 class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
-    private var intervalInMilliSeconds: Long = 0
+    private var isPlaying = true
+    private lateinit var intervalInput: EditText
+    private lateinit var saveButton: Button
+    private lateinit var resultText: TextView
+    private lateinit var nextSwitch: TextView
+    private lateinit var fab: FloatingActionButton
+    private lateinit var simCheckboxesContainer: LinearLayout
+    private var intervalInSeconds: Long = 0
+    private var handler: Handler = Handler(Looper.getMainLooper())
+    private var simSlots: Int = 0
+    private var simSlotIds: MutableMap<String, Int> = mutableMapOf()
     private var _seService: SEService? = null
-    private val lock = Mutex()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val intervalInput: EditText = findViewById(R.id.intervalInput)
-        val saveButton: Button = findViewById(R.id.saveButton)
-        val resultText: TextView = findViewById(R.id.resultText)
-
+        val subscriptionManager = SubscriptionManager.from(applicationContext)
+        simSlots = subscriptionManager.getActiveSubscriptionInfoCountMax()
+        intervalInput = findViewById(R.id.intervalInput)
+        saveButton = findViewById(R.id.saveButton)
+        resultText = findViewById(R.id.resultText)
+        nextSwitch = findViewById(R.id.nextSwitch)
+        fab = findViewById(R.id.fab)
+        simCheckboxesContainer = findViewById(R.id.simCheckboxesContainer)
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
-        intervalInMilliSeconds = sharedPreferences.getLong("interval", 1)
-        intervalInput.setText(intervalInMilliSeconds.toString())
-        resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
+        intervalInSeconds = sharedPreferences.getLong("interval", 120)
 
+        fab.setOnClickListener {
+            isPlaying = !isPlaying
+            updateFABIcon(fab)
+            if (isPlaying) {
+                enqueueSwitch()
+            } else {
+                WorkManager.getInstance(applicationContext).cancelAllWork()
+            }
+        }
+
+        initialize()
+        intervalInput.setText(intervalInSeconds.toString())
+        resultText.text = "Switching eSIM every $intervalInSeconds seconds."
         saveButton.setOnClickListener {
             val inputText = intervalInput.text.toString()
             if (inputText.isNotEmpty()) {
-                intervalInMilliSeconds = inputText.toLong()
-                if (intervalInMilliSeconds >= 1) {
-                    resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
-                    sharedPreferences.edit().putLong("interval", intervalInMilliSeconds).apply()
+                intervalInSeconds = inputText.toLong()
+                if (intervalInSeconds >= 10) {
+                    resultText.text = "Switching eSIM every $intervalInSeconds seconds."
+                    val editor = sharedPreferences.edit()
+                    editor.putLong("interval", intervalInSeconds)
+                    editor.apply()
                     enqueueSwitch()
                 } else {
-                    Toast.makeText(this, "Please enter a number greater than 1.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Please enter a number greater than 10.", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 Toast.makeText(this, "Please enter an interval.", Toast.LENGTH_SHORT).show()
             }
         }
-
-        enqueueSwitch()
+        startRecurringTimer()
     }
 
-private fun enqueueSwitch() {
-    if (_seService == null) {
-        runBlocking {
-            lock.withLock {
-                try {
-                    // Use a Runnable for the first parameter and specify the type explicitly
-                    _seService = SEService(
-                        applicationContext, 
-                        Runnable { /* No-op executor */ }, 
-                        SEService.OnConnectedListener { seService -> 
-                            listReaders(seService) 
-                        }
-                    )
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to connect to SEService", e)
+    private fun enqueueSwitch() {
+        // Check for SEService and list readers
+        if (_seService == null ) {
+            val lock = Mutex()
+            runBlocking {
+                lock.withLock {
+                    try {
+                        _seService = SEService(applicationContext, { it.run() }, {
+                            runBlocking {
+                                lock.withLock {
+                                    Log.d("TAG", "SE service is connected!")
+                                    listReaders(_seService!!)
+                                }
+                            }
+                        })
+                    } catch (e: Exception) {
+                        Log.e("TAG", "Error connecting to SEService", e)
+                    }
                 }
             }
+        } else {
+            listReaders(_seService!!)
         }
-    } else {
-        _seService?.let { listReaders(it) }
+
+        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<MainActivity>().setInitialDelay(intervalInSeconds, TimeUnit.SECONDS).build()
+        WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
     }
-}
 
     private fun listReaders(seService: SEService) {
-        Log.d("MainActivity", "ListReaders Task executed at: ${System.currentTimeMillis()}")
+        Log.d("TAG", "ListReaders Task executed at: ${System.currentTimeMillis()}")
         if (seService.isConnected) {
             for (reader in seService.readers) {
                 try {
@@ -89,23 +152,23 @@ private fun enqueueSwitch() {
                     session.closeChannels()
 
                     val atr = session.getATR()
-                    Log.i("MainActivity", "${reader.name} ATR: $atr Session: $session")
+                    Log.i("TAG", "${reader.name} ATR: $atr Session: $session")
                     val chan = session.openLogicalChannel(hexStringToByteArray("A0000005591010FFFFFFFF8900000100"))!!
-                    Log.i("MainActivity", "${reader.name} Opened Channel")
+                    Log.i("TAG", "${reader.name} Opened Channel")
                     val response: ByteArray = chan.getSelectResponse()!!
-                    Log.i("MainActivity", "Opened logical channel: ${response.toHex()}")
+                    Log.i("TAG", "Opened logical channel: ${response.toHex()}")
                     val resp1 = chan.transmit(hexStringToByteArray("81E2910006BF3E035C015A"))
-                    Log.i("MainActivity", "Transmit Response: ${resp1.toHex()}")
+                    Log.i("TAG", "Transmit Response: ${resp1.toHex()}")
                     if (resp1[0] == 0xbf.toByte()) {
                         switchToNext(chan, reader.name)
                         chan.close()
                         session.closeChannels()
                         session.close()
                     } else {
-                        Log.e("MainActivity", "${reader.name} No EID Found")
+                        Log.e("TAG", "${reader.name} No EID Found")
                     }
                 } catch (e: Exception) {
-                    Log.e("MainActivity", "Error with reader ${reader.name}", e)  // Fixed missing parenthesis
+                    Log.e("TAG", "Error with reader ${reader.name}", e)
                 }
             }
         }
@@ -113,7 +176,8 @@ private fun enqueueSwitch() {
 
     private fun switchToNext(chan: Channel, name: String) {
         val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
-        Log.e("MainActivity", "notificationResponse: $notificationResponse")
+        Log.e("TAG", "notificationResponse: $notificationResponse")
+        // Process notificationResponse and switch logic here...
         val pendingDeleteList = mutableListOf<Triple<String, String, Pair<String, String>>>()
         var index = notificationResponse.indexOf("bf2f")
         while (index != -1) {
@@ -219,38 +283,34 @@ private fun enqueueSwitch() {
     }
 
     private fun transmitContinued(chan: Channel, apdu: String): String {
-        Log.i("MainActivity", "Transmit: $apdu")
+        Log.i("TAG", "Transmit: $apdu")
         var txResp: ByteArray = chan.transmit(hexStringToByteArray(apdu))
         var combinedResp = txResp.sliceArray(0 until txResp.size - 2)
         while (txResp[txResp.size - 2].toInt() == 0x6a) {
             txResp = chan.transmit(byteArrayOf(0x81.toByte(), 0xc0.toByte(), 0, 0, txResp.last()))
-            Log.e("MainActivity", txResp.toHex())
+            Log.e("TAG", txResp.toHex())
             combinedResp += txResp.sliceArray(0 until txResp.size - 2)
         }
-        Log.i("MainActivity", "Transmit Response: ${combinedResp.toHex()}")
+        Log.i("TAG", "Transmit Response: ${combinedResp.toHex()}")
         return combinedResp.toHex()
     }
 
-    private fun hexStringToByteArray(hex: String): ByteArray {
-        require(hex.length % 2 == 0) { "Hex string must have an even length" }
-        return ByteArray(hex.length / 2) { i ->
-            val index = i * 2
-            hex.substring(index, index + 2).toInt(16).toByte()
-        }
+    private fun startRecurringTimer() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                if (isPlaying) {
+                    enqueueSwitch()
+                }
+                handler.postDelayed(this, intervalInSeconds * 1000)
+            }
+        }, intervalInSeconds * 1000)
     }
 
-    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
-
-    private fun swapEveryTwoCharacters(input: String): String {
-        val result = StringBuilder()
-        for (i in 0 until input.length step 2) {
-            if (i + 1 < input.length) {
-                result.append(input[i + 1])
-                result.append(input[i])
-            } else {
-                result.append(input[i])
-            }
+    private fun updateFABIcon(fab: FloatingActionButton) {
+        if (isPlaying) {
+            fab.setImageResource(R.drawable.ic_pause)
+        } else {
+            fab.setImageResource(R.drawable.ic_play)
         }
-        return result.toString()
     }
 }
