@@ -314,7 +314,7 @@ class MainActivity : AppCompatActivity() {
         runnable = object : Runnable {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
-                val timeRemaining = (currentTime - intervalInMilliSeconds) / 1)
+                val timeRemaining = currentTime - intervalInMilliSeconds
                 if (isPlaying) {
                     nextSwitch.setText("Next switch in $timeRemaining seconds ($intervalInMilliSeconds)")
                 } else {
