@@ -50,6 +50,7 @@ fun swapEveryTwoCharacters(input: String): String {
 class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
     private var isPlaying = true
+    private var countDownTimer: CountDownTimer? = null
     private var intervalInMilliSeconds: Long = 0 // Ensure this is var
     private lateinit var intervalInput: EditText
     private lateinit var saveButton: Button
@@ -77,7 +78,7 @@ class MainActivity : AppCompatActivity() {
         fab = findViewById(R.id.fab)
         simCheckboxesContainer = findViewById(R.id.simCheckboxesContainer)
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
-        intervalInMilliSeconds = sharedPreferences.getLong("interval", 1000) // Default to 1000 ms
+        intervalInMilliSeconds = sharedPreferences.getLong("interval", 1) // Default to 1 ms
         window.statusBarColor = resources.getColor(R.color.primary)
 
         startRecurringTimer()
@@ -98,12 +99,12 @@ class MainActivity : AppCompatActivity() {
             val inputText = intervalInput.text.toString()
             if (inputText.isNotEmpty()) {
                 intervalInMilliSeconds = inputText.toLong() // This is fine since intervalInMilliSeconds is var
-                if (intervalInMilliSeconds >= 1000) { // Minimum interval of 1 second
+                if (intervalInMilliSeconds >= 1) { // Minimum interval of 1 millisecond
                     resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
                     sharedPreferences.edit().putLong("interval", intervalInMilliSeconds).apply()
                     enqueueSwitch()
                 } else {
-                    Toast.makeText(this, "Please enter a number greater than or equal to 1000.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Please enter a number greater than or equal to 1.", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 Toast.makeText(this, "Please enter an interval.", Toast.LENGTH_SHORT).show()
@@ -328,7 +329,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                handler.postDelayed(this, 1000) // Update every second
+                handler.postDelayed(this, 1) // Update every millisecond
             }
         }
 
@@ -337,6 +338,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        countDownTimer?.cancel()
         handler.removeCallbacks(runnable!!)
     }
 
