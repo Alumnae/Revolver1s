@@ -337,7 +337,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Start the recurring task
-        //handler.post(runnable!!)
+        handler.post(runnable!!)
         handler.postDelayed( enqueueSwitch() , intervalInMilliSeconds)
     }
 
