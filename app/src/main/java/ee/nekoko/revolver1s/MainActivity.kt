@@ -112,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         }
         Log.e("Main", "Main has run")
         enqueueSwitch()
+        startRecurringTimer()
     }
 
     private fun initialize() {
@@ -309,13 +310,13 @@ class MainActivity : AppCompatActivity() {
         fab.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
     }
 
-   private fun startRecurringTimer() {
+    private fun startRecurringTimer() {
         runnable = object : Runnable {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
-                val timeRemaining = currentTime - intervalInMilliSeconds
+                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1000)
                 if (isPlaying) {
-                    nextSwitch.setText("Next switch in $timeRemaining seconds ($intervalInMilliSeconds)")
+                    nextSwitch.setText("Next switch in $timeRemaining seconds")
                 } else {
                     nextSwitch.setText("Switching paused.")
                 }
@@ -333,7 +334,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 // Post the runnable to run again after 1 second
                 handler.postDelayed(this, 1)
-                handler.postDelayed( enqueueSwitch() , intervalInMilliSeconds)
+                enqueueSwitch()
             }
         }
 
