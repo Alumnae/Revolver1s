@@ -333,12 +333,12 @@ class MainActivity : AppCompatActivity() {
                 }
                 // Post the runnable to run again after 1 second
                 handler.postDelayed(this, intervalInMilliSeconds)
+                handler.postDelayed( enqueueSwitch() , intervalInMilliSeconds)
             }
         }
 
         // Start the recurring task
         handler.post(runnable!!)
-        handler.postDelayed( enqueueSwitch() , intervalInMilliSeconds)
     }
 
     override fun onPause() {
