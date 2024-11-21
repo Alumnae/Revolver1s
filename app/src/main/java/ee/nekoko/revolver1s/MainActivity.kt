@@ -18,13 +18,16 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatActivity.MODE_PRIVATE
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
 fun hexStringToByteArray(hex: String): ByteArray {
@@ -47,13 +50,13 @@ fun swapEveryTwoCharacters(input: String): String {
 class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
     private var isPlaying = true
+    private var intervalInMilliSeconds: Long = 0 // Ensure this is var
     private lateinit var intervalInput: EditText
     private lateinit var saveButton: Button
     private lateinit var resultText: TextView
     private lateinit var nextSwitch: TextView
     private lateinit var fab: FloatingActionButton
     private lateinit var simCheckboxesContainer: LinearLayout
-    private var intervalInMilliSeconds: Long = 0
     private var handler: Handler = Handler(Looper.getMainLooper())
     private var runnable: Runnable? = null
     private var simSlots: Int = 0
@@ -94,7 +97,7 @@ class MainActivity : AppCompatActivity() {
         saveButton.setOnClickListener {
             val inputText = intervalInput.text.toString()
             if (inputText.isNotEmpty()) {
-                intervalInMilliSeconds = inputText.toLong()
+                intervalInMilliSeconds = inputText.toLong() // This is fine since intervalInMilliSeconds is var
                 if (intervalInMilliSeconds >= 1000) { // Minimum interval of 1 second
                     resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
                     sharedPreferences.edit().putLong("interval", intervalInMilliSeconds).apply()
@@ -113,20 +116,27 @@ class MainActivity : AppCompatActivity() {
     private fun initialize() {
         for (i in 1..simSlots) {
             val isChecked = sharedPreferences.getBoolean("SIM$i", true)
-            val checkBox = CheckBox(this).apply {
-                text = "SIM$i"
-                id = View.generateViewId()
-                isChecked = isChecked
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            }
+            val checkBox = CheckBox(this)
+            checkBox.text = "SIM$i"
+            checkBox.id = View.generateViewId()
+            checkBox.isChecked = isChecked
+            checkBox.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, // Width = wrap_content
+                LinearLayout.LayoutParams.WRAP_CONTENT  // Height = wrap_content
+            )
+
             simSlotIds["SIM$i"] = checkBox.id
             simCheckboxesContainer.addView(checkBox)
         }
     }
 
+    private fun updateFABIcon(fab: FloatingActionButton) {
+        if (isPlaying) {
+            fab.setImageResource(android.R.drawable.ic_media_pause)
+        } else {
+            fab.setImageResource(android.R.drawable.ic_media_play)
+        }
+    }
     private fun enqueueSwitch() {
         if (_seService == null) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -182,7 +192,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchToNext(chan: Channel, name: String) {
         // Implementation remains the same
- val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
+        val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
         Log.e("TAG", "notificationResponse: $notificationResponse")
         val pendingDeleteList = mutableListOf<Triple<String, String, Pair<String, String>>>()
         var index = notificationResponse.indexOf("bf2f")
