@@ -112,7 +112,6 @@ class MainActivity : AppCompatActivity() {
         }
         Log.e("Main", "Main has run")
         enqueueSwitch()
-        startRecurringTimer()
     }
 
     private fun initialize() {
@@ -343,7 +342,7 @@ class MainActivity : AppCompatActivity() {
 
         // Start the recurring task
         //handler.post(runnable!!)
-        handler.postDelayed(this, intervalInMilliSeconds)
+        handler.postDelayed( enqueueSwitch() , intervalInMilliSeconds)
     }
 
     override fun onPause() {
