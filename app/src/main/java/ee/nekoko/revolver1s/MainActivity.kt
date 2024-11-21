@@ -130,13 +130,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateFABIcon(fab: FloatingActionButton) {
-        if (isPlaying) {
-            fab.setImageResource(android.R.drawable.ic_media_pause)
-        } else {
-            fab.setImageResource(android.R.drawable.ic_media_play)
-        }
-    }
     private fun enqueueSwitch() {
         if (_seService == null) {
             CoroutineScope(Dispatchers.IO).launch {
