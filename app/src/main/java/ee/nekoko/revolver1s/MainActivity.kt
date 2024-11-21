@@ -56,21 +56,28 @@ class MainActivity : AppCompatActivity() {
         enqueueSwitch()
     }
 
-    private fun enqueueSwitch() {
-        if (_seService == null) {
-            runBlocking {
-                lock.withLock {
-                    try {
-                        _seService = SEService(applicationContext, { it.run() }, { seService -> listReaders(seService) })
-                    } catch (e: Exception) {
-                        Log.e("MainActivity", "Failed to connect to SEService", e)
-                    }
+private fun enqueueSwitch() {
+    if (_seService == null) {
+        runBlocking {
+            lock.withLock {
+                try {
+                    // Use a Runnable for the first parameter and specify the type explicitly
+                    _seService = SEService(
+                        applicationContext, 
+                        Runnable { /* No-op executor */ }, 
+                        SEService.OnConnectedListener { seService -> 
+                            listReaders(seService) 
+                        }
+                    )
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to connect to SEService", e)
                 }
             }
-        } else {
-            _seService?.let { listReaders(it) }
         }
+    } else {
+        _seService?.let { listReaders(it) }
     }
+}
 
     private fun listReaders(seService: SEService) {
         Log.d("MainActivity", "ListReaders Task executed at: ${System.currentTimeMillis()}")
