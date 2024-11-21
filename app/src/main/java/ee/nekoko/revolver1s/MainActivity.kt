@@ -1,4 +1,5 @@
 package ee.nekoko.revolver1s
+
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -18,12 +19,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
-import kotlinx.coroutines.runBlocking
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import java.util.concurrent.TimeUnit
 
 fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
 fun hexStringToByteArray(hex: String): ByteArray {
@@ -46,7 +47,6 @@ fun swapEveryTwoCharacters(input: String): String {
 class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
     private var isPlaying = true
-    private var countDownTimer: CountDownTimer? = null
     private lateinit var intervalInput: EditText
     private lateinit var saveButton: Button
     private lateinit var resultText: TextView
@@ -54,12 +54,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fab: FloatingActionButton
     private lateinit var simCheckboxesContainer: LinearLayout
     private var intervalInMilliSeconds: Long = 0
-    private var nextSwitchTime: Long = 0 // don't init
-    private var handler: Handler = Handler(Looper.getMainLooper()) // To run tasks every second
+    private var handler: Handler = Handler(Looper.getMainLooper())
     private var runnable: Runnable? = null
     private var simSlots: Int = 0
     private var simSlotIds: MutableMap<String, Int> = mutableMapOf()
     private var _seService: SEService? = null
+    private val lock = Mutex()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity() {
         fab = findViewById(R.id.fab)
         simCheckboxesContainer = findViewById(R.id.simCheckboxesContainer)
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
-        intervalInMilliSeconds = sharedPreferences.getLong("interval", 1 )
+        intervalInMilliSeconds = sharedPreferences.getLong("interval", 1000) // Default to 1000 ms
         window.statusBarColor = resources.getColor(R.color.primary)
 
         startRecurringTimer()
@@ -82,75 +82,60 @@ class MainActivity : AppCompatActivity() {
         fab.setOnClickListener {
             isPlaying = !isPlaying
             updateFABIcon(fab)
-            // Start or stop your eSIM switching work based on the play/pause state
             if (isPlaying) {
                 Log.i("FAB", "Enqueued request in $intervalInMilliSeconds milliseconds")
                 enqueueSwitch()
-                }
+            }
         }
 
         initialize()
         intervalInput.setText(intervalInMilliSeconds.toString())
         resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
         saveButton.setOnClickListener {
-            // Get the user input as a string
             val inputText = intervalInput.text.toString()
-
-            // Validate the input changed to 1s
             if (inputText.isNotEmpty()) {
                 intervalInMilliSeconds = inputText.toLong()
-                if (intervalInMilliSeconds >= 1) {
+                if (intervalInMilliSeconds >= 1000) { // Minimum interval of 1 second
                     resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
-                    val editor = sharedPreferences.edit()
-                    editor.putLong("interval", intervalInMilliSeconds)
-                    editor.apply()
+                    sharedPreferences.edit().putLong("interval", intervalInMilliSeconds).apply()
                     enqueueSwitch()
                 } else {
-                    // Invalid input (not a positive number)
-                    Toast.makeText(this, "Please enter a number greater than 1.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Please enter a number greater than or equal to 1000.", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                // Input is empty
                 Toast.makeText(this, "Please enter an interval.", Toast.LENGTH_SHORT).show()
             }
         }
         Log.e("Main", "Main has run")
         enqueueSwitch()
-
     }
-
-
 
     private fun initialize() {
         for (i in 1..simSlots) {
             val isChecked = sharedPreferences.getBoolean("SIM$i", true)
-            val checkBox = CheckBox(this)
-            checkBox.text = "SIM$i"
-            checkBox.id = View.generateViewId()
-            checkBox.isChecked = isChecked
-            checkBox.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, // Width = wrap_content
-                LinearLayout.LayoutParams.WRAP_CONTENT  // Height = wrap_content
-            )
-
+            val checkBox = CheckBox(this).apply {
+                text = "SIM$i"
+                id = View.generateViewId()
+                isChecked = isChecked
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
             simSlotIds["SIM$i"] = checkBox.id
             simCheckboxesContainer.addView(checkBox)
         }
     }
-    
+
     private fun enqueueSwitch() {
-        // Check for SEService and list readers
         if (_seService == null) {
-            val lock = Mutex()
-            runBlocking {
+            CoroutineScope(Dispatchers.IO).launch {
                 lock.withLock {
                     try {
                         _seService = SEService(applicationContext, { it.run() }, {
-                            runBlocking {
-                                lock.withLock {
-                                    Log.d("TAG", "SE service is connected!")
-                                    listReaders(_seService!!)
-                                }
+                            CoroutineScope(Dispatchers.Main).launch {
+                                Log.d("TAG", "SE service is connected!")
+                                listReaders(_seService!!)
                             }
                         })
                     } catch (e: Exception) {
@@ -161,9 +146,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             listReaders(_seService!!)
         }
-
-        // Directly call enqueueSwitch instead of using OneTimeWorkRequestBuilder
-        enqueueSwitch()
     }
 
     private fun listReaders(seService: SEService) {
@@ -185,7 +167,7 @@ class MainActivity : AppCompatActivity() {
                     Log.i("TAG", "Transmit Response: ${resp1.toHex()}")
                     if (resp1[0] == 0xbf.toByte()) {
                         switchToNext(chan, reader.name)
-                        chan.close ()
+                        chan.close()
                         session.closeChannels()
                         session.close()
                     } else {
@@ -199,7 +181,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchToNext(chan: Channel, name: String) {
-        val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
+        // Implementation remains the same
+ val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
         Log.e("TAG", "notificationResponse: $notificationResponse")
         val pendingDeleteList = mutableListOf<Triple<String, String, Pair<String, String>>>()
         var index = notificationResponse.indexOf("bf2f")
@@ -318,58 +301,39 @@ class MainActivity : AppCompatActivity() {
         return combinedResp.toHex()
     }
 
-
     private fun updateFABIcon(fab: FloatingActionButton) {
-        if (isPlaying) {
-            fab.setImageResource(android.R.drawable.ic_media_pause)
-        } else {
-            fab.setImageResource(android.R.drawable.ic_media_play)
-        }
+        fab.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
     }
 
-private fun startRecurringTimer() {
-    runnable = object : Runnable {
-        override fun run() {
-            val currentTime = System.currentTimeMillis()
-            val nextSwitchTime = System.currentTimeMillis() + intervalInMilliSeconds
-            val editor = sharedPreferences.edit()
-            editor.putLong("nextSwitch", nextSwitchTime)
-            editor.apply()
+    private fun startRecurringTimer() {
+        runnable = object : Runnable {
+            override fun run() {
+                val currentTime = System.currentTimeMillis()
+                val nextSwitchTime = currentTime + intervalInMilliSeconds
+                sharedPreferences.edit().putLong("nextSwitch", nextSwitchTime).apply()
 
-            // Ensure the nextSwitchTime is in the future
-            val timeRemaining = (nextSwitchTime - currentTime).coerceAtLeast(0)
+                val timeRemaining = (nextSwitchTime - currentTime).coerceAtLeast(0)
+                nextSwitch.text = if (isPlaying) "Next switch in $timeRemaining milliseconds" else "Switching paused."
 
-            if (isPlaying) {
-                nextSwitch.setText("Next switch in $timeRemaining milliseconds")
-            } else {
-                nextSwitch.setText("Switching paused.")
-            }
-
-            // Update the UI for SIM slots
-            for (i in 1..simSlots) {
-                if (simSlotIds["SIM$i"] != null) {
-                    val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
-                    if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
-                        val edit = sharedPreferences.edit()
-                        edit.putBoolean("SIM$i", simSlotN.isChecked)
-                        edit.apply()
+                for (i in 1..simSlots) {
+                    simSlotIds["SIM$i"]?.let { id ->
+                        val simSlotN : CheckBox = findViewById(id)
+                        if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
+                            sharedPreferences.edit().putBoolean("SIM$i", simSlotN.isChecked).apply()
+                        }
+                        simSlotN.text = "SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}"
                     }
-                    simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
                 }
+
+                handler.postDelayed(this, 1000) // Update every second
             }
-
-            // Post the runnable to run again after 1 millisecond
-            handler.postDelayed(this, 1)
         }
-    }
 
-    // Start the recurring task
-    handler.post(runnable!!)
-}
+        handler.post(runnable!!)
+    }
 
     override fun onPause() {
         super.onPause()
-        countDownTimer?.cancel()
         handler.removeCallbacks(runnable!!)
     }
 
@@ -377,4 +341,4 @@ private fun startRecurringTimer() {
         super.onResume()
         startRecurringTimer()
     }
-}
+} 
