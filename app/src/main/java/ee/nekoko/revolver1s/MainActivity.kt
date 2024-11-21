@@ -1,9 +1,7 @@
 package ee.nekoko.revolver1s
 
-import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
-import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.se.omapi.Channel
@@ -20,113 +18,111 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.IOException
-import java.util.concurrent.TimeUnit
 
-fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
+fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 fun hexStringToByteArray(hex: String): ByteArray {
     require(hex.length % 2 == 0) { "Hex string must have an even length" }
-    return ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
+    return ByteArray(hex.length / 2) { hex.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 }
 
 fun swapEveryTwoCharacters(input: String): String {
-    val result = StringBuilder()
-    for (i in 0 until input.length step 2) {
-        if (i + 1 < input.length) {
-            result.append(input[i + 1]).append(input[i])
-        } else {
-            result.append(input[i])
+    return buildString {
+        for (i in input.indices step 2) {
+            append(input.getOrNull(i + 1)?.toString() ?: "")
+            append(input[i])
         }
     }
-    return result.toString()
 }
 
 class MainActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
     private var isPlaying = true
-    private var countDownTimer: CountDownTimer? = null
-    private var intervalInMilliSeconds: Long = 0 // Ensure this is var
+    private var intervalInMilliSeconds: Long = 0
     private lateinit var intervalInput: EditText
     private lateinit var saveButton: Button
     private lateinit var resultText: TextView
     private lateinit var nextSwitch: TextView
     private lateinit var fab: FloatingActionButton
     private lateinit var simCheckboxesContainer: LinearLayout
-    private var handler: Handler = Handler(Looper.getMainLooper())
-    private var runnable: Runnable? = null
+    private var handler = Handler(Looper.getMainLooper())
     private var simSlots: Int = 0
-    private var simSlotIds: MutableMap<String, Int> = mutableMapOf()
+    private val simSlotIds = mutableMapOf<String, Int>()
     private var _seService: SEService? = null
     private val lock = Mutex()
+    private var runnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val subscriptionManager = SubscriptionManager.from(applicationContext)
-        simSlots = subscriptionManager.getActiveSubscriptionInfoCountMax()
+        initializeViews()
+        setupSharedPreferences()
+        setupFabClickListener()
+        initializeSimCheckboxes()
+        startRecurringTimer()
+        enqueueSwitch()
+    }
+
+    private fun initializeViews() {
         intervalInput = findViewById(R.id.intervalInput)
         saveButton = findViewById(R.id.saveButton)
         resultText = findViewById(R.id.resultText)
         nextSwitch = findViewById(R.id.nextSwitch)
         fab = findViewById(R.id.fab)
         simCheckboxesContainer = findViewById(R.id.simCheckboxesContainer)
+    }
+
+    private fun setupSharedPreferences() {
         sharedPreferences = getSharedPreferences("eSimPreferences", MODE_PRIVATE)
-        intervalInMilliSeconds = sharedPreferences.getLong("interval", 1) // Default to 1 ms
-        window.statusBarColor = resources.getColor(R.color.primary)
+        intervalInMilliSeconds = sharedPreferences.getLong("interval", 1)
+        intervalInput.setText(intervalInMilliSeconds.toString())
+        resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
+    }
 
-        startRecurringTimer()
-
+    private fun setupFabClickListener() {
         fab.setOnClickListener {
             isPlaying = !isPlaying
-            updateFABIcon(fab)
+            updateFABIcon()
             if (isPlaying) {
-                Log.i("FAB", "Enqueued request in $intervalInMilliSeconds milliseconds")
                 enqueueSwitch()
             }
         }
 
-        initialize()
-        intervalInput.setText(intervalInMilliSeconds.toString())
-        resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
         saveButton.setOnClickListener {
             val inputText = intervalInput.text.toString()
             if (inputText.isNotEmpty()) {
-                intervalInMilliSeconds = inputText.toLong() // This is fine since intervalInMilliSeconds is var
-                if (intervalInMilliSeconds >= 1) { // Minimum interval of 1 millisecond
+                intervalInMilliSeconds = inputText.toLong()
+                if (intervalInMilliSeconds >= 1) {
                     resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
                     sharedPreferences.edit().putLong("interval", intervalInMilliSeconds).apply()
                     enqueueSwitch()
                 } else {
-                    Toast.makeText(this, "Please enter a number greater than or equal to 1.", Toast.LENGTH_SHORT).show()
+                    showToast("Please enter a number greater than or equal to 1.")
                 }
             } else {
-                Toast.makeText(this, "Please enter an interval.", Toast.LENGTH_SHORT).show()
+                showToast("Please enter an interval.")
             }
         }
-        Log.e("Main", "Main has run")
-        enqueueSwitch()
-        startRecurringTimer()
     }
 
-    private fun initialize() {
+    private fun initializeSimCheckboxes() {
+        val subscriptionManager = SubscriptionManager.from(applicationContext)
+        simSlots = subscriptionManager.getActiveSubscriptionInfoCountMax()
         for (i in 1..simSlots) {
-            val isChecked = sharedPreferences.getBoolean("SIM$i", true)
-            val checkBox = CheckBox(this)
-            checkBox.text = "SIM$i"
-            checkBox.id = View.generateViewId()
-            checkBox.isChecked = isChecked
-            checkBox.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, // Width = wrap_content
-                LinearLayout.LayoutParams.WRAP_CONTENT  // Height = wrap_content
-            )
-
+            val checkBox = CheckBox(this).apply {
+                text = "SIM$i"
+                id = View.generateViewId()
+                isChecked = sharedPreferences.getBoolean("SIM$i", true)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
             simSlotIds["SIM$i"] = checkBox.id
             simCheckboxesContainer.addView(checkBox)
         }
@@ -137,12 +133,12 @@ class MainActivity : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 lock.withLock {
                     try {
-                        _seService = SEService(applicationContext, { it.run() }, {
+                        _seService = SEService(applicationContext, { it.run() }) {
                             CoroutineScope(Dispatchers.Main).launch {
                                 Log.d("TAG", "SE service is connected!")
                                 listReaders(_seService!!)
                             }
-                        })
+                        }
                     } catch (e: Exception) {
                         Log.e("TAG", "Error connecting to SEService", e)
                     }
@@ -156,12 +152,11 @@ class MainActivity : AppCompatActivity() {
     private fun listReaders(seService: SEService) {
         Log.d("TAG", "ListReaders Task executed at: ${System.currentTimeMillis()}")
         if (seService.isConnected) {
-            for (reader in seService.readers) {
+            seService.readers.forEach { reader ->
                 try {
                     reader.closeSessions()
                     val session: Session = reader.openSession()
                     session.closeChannels()
-
                     val atr = session.getATR()
                     Log.i("TAG", "${reader.name} ATR: $atr Session: $session")
                     val chan = session.openLogicalChannel(hexStringToByteArray("A0000005591010FFFFFFFF8900000100"))!!
@@ -186,7 +181,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchToNext(chan: Channel, name: String) {
-        // Implementation remains the same
         val notificationResponse = transmitContinued(chan, "81e2910003bf2800")
         Log.e("TAG", "notificationResponse: $notificationResponse")
         val pendingDeleteList = mutableListOf<Triple<String, String, Pair<String, String>>>()
@@ -209,8 +203,7 @@ class MainActivity : AppCompatActivity() {
                 when (blockData.substring(blockIndex, blockIndex + 2)) {
                     "80" -> {
                         blockIndex += 2
-                        val lengthHex = blockData.substring(blockIndex, blockIndex + 2)
-                        val length = lengthHex.toInt(16) * 2
+                        val length = blockData.substring(blockIndex, blockIndex + 2).toInt(16) * 2
                         blockIndex += 2
                         _number = blockData.substring(blockIndex - 4, blockIndex + length)
                         number = blockData.substring(blockIndex, blockIndex + length)
@@ -232,30 +225,27 @@ class MainActivity : AppCompatActivity() {
                     }
                     "5a" -> {
                         blockIndex += 2
-                        val length = blockData.substring(blockIndex, blockIndex + 2).toInt(16) * 2
+                        val length = blockData.substring(blockIndex, blockIndex + 2).toInt(16) *  2
                         blockIndex += 2
                         iccid = blockData.substring(blockIndex, blockIndex + length)
                         blockIndex += length
                     }
-                    else -> {
-                        break
-                    }
+                    else -> break
                 }
             }
             if (code == "0640" || code == "0520") {
                 pendingDeleteList.add(Triple(_number, iccid, Pair(smdp, number)))
             }
-
             index = notificationResponse.indexOf("bf2f", index)
         }
 
-        for (pendingDelete in pendingDeleteList) {
+        pendingDeleteList.forEach { pendingDelete ->
             val deleteResponse = transmitContinued(chan,
                 "81e29100" +
-                        (pendingDelete.first.length / 2 + 3).toString(16).padStart(2, '0')
-                        + "BF30" +
-                        (pendingDelete.first.length / 2).toString(16).padStart(2, '0')
-                        + pendingDelete.first
+                        (pendingDelete.first.length / 2 + 3).toString(16).padStart(2, '0') +
+                        "BF30" +
+                        (pendingDelete.first.length / 2).toString(16).padStart(2, '0') +
+                        pendingDelete.first
             )
             Log.i("MainActivity", "Deleting #${pendingDelete.third.second} [${pendingDelete.third.first}] Delete Response: $deleteResponse")
         }
@@ -264,7 +254,7 @@ class MainActivity : AppCompatActivity() {
         Log.e("MainActivity", hexString)
         val parts = hexString.split("e310")
         val result = mutableListOf<Pair<String, Boolean>>()
-        for (part in parts.drop(1)) {
+        parts.drop(1).forEach { part ->
             val lengthByteIndex = part.indexOf("5a") + 2
             if (lengthByteIndex >= 2) {
                 val lengthByteHex = part.substring(lengthByteIndex, lengthByteIndex + 2)
@@ -306,7 +296,7 @@ class MainActivity : AppCompatActivity() {
         return combinedResp.toHex()
     }
 
-    private fun updateFABIcon(fab: FloatingActionButton) {
+    private fun updateFABIcon() {
         fab.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
     }
 
@@ -315,40 +305,33 @@ class MainActivity : AppCompatActivity() {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
                 val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1000)
-                if (isPlaying) {
-                    nextSwitch.setText("Next switch in $timeRemaining seconds")
-                } else {
-                    nextSwitch.setText("Switching paused.")
-                }
+                nextSwitch.text = if (isPlaying) "Next switch in $timeRemaining seconds" else "Switching paused."
 
                 for (i in 1..simSlots) {
-                    if (simSlotIds["SIM$i"] != null) {
-                        val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
+                    simSlotIds["SIM$i"]?.let { id ->
+                        val simSlotN: CheckBox = findViewById(id)
                         if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
-                            val edit = sharedPreferences.edit()
-                            edit.putBoolean("SIM$i", simSlotN.isChecked)
-                            edit.apply()
+                            sharedPreferences.edit().putBoolean("SIM$i", simSlotN.isChecked).apply()
                         }
-                        simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
+                        simSlotN.text = "SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}"
                     }
-                }
-                // Post the runnable to run again after 1 second
                 handler.postDelayed(this, 1000)
             }
         }
-
-        // Start the recurring task
         handler.post(runnable!!)
     }
 
     override fun onPause() {
         super.onPause()
-        countDownTimer?.cancel()
         handler.removeCallbacks(runnable!!)
     }
 
     override fun onResume() {
         super.onResume()
         startRecurringTimer()
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }
