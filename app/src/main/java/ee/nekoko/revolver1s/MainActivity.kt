@@ -112,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         }
         Log.e("Main", "Main has run")
         enqueueSwitch()
+        startRecurringTimer()
     }
 
     private fun initialize() {
@@ -313,7 +314,7 @@ class MainActivity : AppCompatActivity() {
         runnable = object : Runnable {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
-                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1)
+                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1000)
                 if (isPlaying) {
                     nextSwitch.setText("Next switch in $timeRemaining seconds")
                 } else {
@@ -321,19 +322,22 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 for (i in 1..simSlots) {
-                    simSlotIds["SIM$i"]?.let { id ->
-                        val simSlotN : CheckBox = findViewById(id)
+                    if (simSlotIds["SIM$i"] != null) {
+                        val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
                         if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
-                            sharedPreferences.edit().putBoolean("SIM$i", simSlotN.isChecked).apply()
+                            val edit = sharedPreferences.edit()
+                            edit.putBoolean("SIM$i", simSlotN.isChecked)
+                            edit.apply()
                         }
-                        simSlotN.text = "SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}"
+                        simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
                     }
                 }
-
-                handler.postDelayed(this, 1) // Update every millisecond
+                // Post the runnable to run again after 1 second
+                handler.postDelayed(this, 1000)
             }
         }
 
+        // Start the recurring task
         handler.post(runnable!!)
     }
 
@@ -347,4 +351,4 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         startRecurringTimer()
     }
-} 
+}
