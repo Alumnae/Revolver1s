@@ -113,20 +113,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
         Log.e("Main", "Main has run")
-        enqueue()
+        enqueueSwitch()
 
     }
 
-    // Method to dynamically add SIM checkboxes (SIM1 to SIM5)
-    private fun enqueue() {
-        WorkManager.getInstance(applicationContext).cancelAllWork()
-        val oneTimeWorkRequest = OneTimeWorkRequestBuilder<SwitchWorker>().addTag("SwitchWorker").setInitialDelay(intervalInMilliSeconds, TimeUnit.MILLISECONDS).build()
-        WorkManager.getInstance(applicationContext).enqueue(oneTimeWorkRequest)
-        nextSwitchTime = System.currentTimeMillis()
-        val editor = sharedPreferences.edit()
-        editor.putLong("nextSwitch", nextSwitchTime)
-        editor.apply()
-    }
 
 
     private fun initialize() {
@@ -339,7 +329,10 @@ private fun startRecurringTimer() {
     runnable = object : Runnable {
         override fun run() {
             val currentTime = System.currentTimeMillis()
-            val nextSwitchTime = sharedPreferences.getLong("nextSwitch", currentTime)
+            val nextSwitchTime = System.currentTimeMillis() + intervalInMilliSeconds
+            val editor = sharedPreferences.edit()
+            editor.putLong("nextSwitch", nextSwitchTime)
+            editor.apply()
 
             // Ensure the nextSwitchTime is in the future
             val timeRemaining = (nextSwitchTime - currentTime).coerceAtLeast(0)
