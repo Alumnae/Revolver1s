@@ -314,9 +314,9 @@ class MainActivity : AppCompatActivity() {
         runnable = object : Runnable {
             override fun run() {
                 val currentTime = System.currentTimeMillis()
-                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1)
+                val timeRemaining = (currentTime - intervalInMilliSeconds) / 1)
                 if (isPlaying) {
-                    nextSwitch.setText("Next switch in $timeRemaining seconds")
+                    nextSwitch.setText("Next switch in $timeRemaining seconds ($intervalInMilliSeconds)")
                 } else {
                     nextSwitch.setText("Switching paused.")
                 }
@@ -333,7 +333,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 // Post the runnable to run again after 1 second
-                handler.postDelayed(this, 1)
+                handler.postDelayed(this, intervalInMilliSeconds)
             }
         }
 
