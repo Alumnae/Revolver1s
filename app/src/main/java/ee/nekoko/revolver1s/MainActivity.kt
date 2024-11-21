@@ -312,14 +312,10 @@ class MainActivity : AppCompatActivity() {
     private fun startRecurringTimer() {
         runnable = object : Runnable {
             override fun run() {
-                 val currentTime = System.currentTimeMillis()
-                val nextSwitchTime = sharedPreferences.getLong("nextSwitch", currentTime)
-
-                // Ensure the nextSwitchTime is in the future
-                val timeRemaining = (nextSwitchTime - currentTime)
-
+                val currentTime = System.currentTimeMillis()
+                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1)
                 if (isPlaying) {
-                    nextSwitch.setText("Next switch in $timeRemaining milliseconds")
+                    nextSwitch.setText("Next switch in $timeRemaining seconds")
                 } else {
                     nextSwitch.setText("Switching paused.")
                 }
