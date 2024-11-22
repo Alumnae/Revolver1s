@@ -323,7 +323,7 @@ private fun startRecurringTimer() {
             val nextSwitchTime = sharedPreferences.getLong("nextSwitch", currentTime)
 
             // Ensure the nextSwitchTime is in the future
-            val timeRemaining = (nextSwitchTime - currentTime).coerceAtLeast(0)
+            val timeRemaining = (nextSwitchTime - currentTime)
 
             if (isPlaying) {
                 nextSwitch.setText("Next switch in $timeRemaining milliseconds")
