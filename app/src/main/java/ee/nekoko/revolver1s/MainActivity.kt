@@ -133,6 +133,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enqueueSwitch() {
+        nextSwitchTime = System.currentTimeMillis()
+        val editor = sharedPreferences.edit()
+        editor.putLong("nextSwitch", nextSwitchTime)
+        editor.apply()
+        
         if (_seService == null) {
             CoroutineScope(Dispatchers.IO).launch {
                 lock.withLock {
@@ -310,38 +315,42 @@ class MainActivity : AppCompatActivity() {
         fab.setImageResource(if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
     }
 
-    private fun startRecurringTimer() {
-        runnable = object : Runnable {
-            override fun run() {
-                val currentTime = System.currentTimeMillis()
-                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1)
-                if (isPlaying) {
-                    nextSwitch.setText("Next switch in $timeRemaining seconds")
-                } else {
-                    nextSwitch.setText("Switching paused.")
-                }
+private fun startRecurringTimer() {
+    runnable = object : Runnable {
+        override fun run() {
+            val currentTime = System.currentTimeMillis()
+            val nextSwitchTime = sharedPreferences.getLong("nextSwitch", currentTime)
 
-                for (i in 1..simSlots) {
-                    if (simSlotIds["SIM$i"] != null) {
-                        val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
-                        if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
-                            val edit = sharedPreferences.edit()
-                            edit.putBoolean("SIM$i", simSlotN.isChecked)
-                            edit.apply()
-                        }
-                        simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
-                    }
-                }
-                // Post the runnable to run again after 1 second
-                handler.postDelayed(this, intervalInMilliSeconds)
+            // Ensure the nextSwitchTime is in the future
+            val timeRemaining = (nextSwitchTime - currentTime).coerceAtLeast(0)
 
+            if (isPlaying) {
+                nextSwitch.setText("Next switch in $timeRemaining milliseconds")
+            } else {
+                nextSwitch.setText("Switching paused.")
             }
-        }
 
-        // Start the recurring task
-        handler.post(runnable!!)
-        enqueueSwitch()
+            // Update the UI for SIM slots
+            for (i in 1..simSlots) {
+                if (simSlotIds["SIM$i"] != null) {
+                    val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
+                    if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
+                        val edit = sharedPreferences.edit()
+                        edit.putBoolean("SIM$i", simSlotN.isChecked)
+                        edit.apply()
+                    }
+                    simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
+                }
+            }
+
+            // Post the runnable to run again after 1 millisecond
+            handler.postDelayed(this, 1)
+        }
     }
+
+    // Start the recurring task
+    handler.post(runnable!!)
+}
 
     override fun onPause() {
         super.onPause()
