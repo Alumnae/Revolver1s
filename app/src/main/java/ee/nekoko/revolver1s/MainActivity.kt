@@ -113,6 +113,7 @@ class MainActivity : AppCompatActivity() {
         }
         Log.e("Main", "Main has run")
         startRecurringTimer()
+        
     }
 
     private fun initialize() {
@@ -166,7 +167,7 @@ class MainActivity : AppCompatActivity() {
                         simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
                     }
                 }
-            handler.postDelayed(this, intervalInMilliSeconds)    
+            handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds)   
         }
     }
 
