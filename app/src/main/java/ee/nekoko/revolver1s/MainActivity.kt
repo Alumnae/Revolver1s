@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
                 if (intervalInMilliSeconds >= 1) { // Minimum interval of 1 millisecond
                     resultText.text = "Switching eSIM every $intervalInMilliSeconds milliseconds."
                     sharedPreferences.edit().putLong("interval", intervalInMilliSeconds).apply()
-                    enqueueSwitch()
+                    handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds)    
                 } else {
                     Toast.makeText(this, "Please enter a number greater than or equal to 1.", Toast.LENGTH_SHORT).show()
                 }
@@ -339,13 +339,13 @@ class MainActivity : AppCompatActivity() {
                 }
                 // Post the runnable to run again after 1 second
                 handler.postDelayed(this, 1)
-                
+                        
             }
+            handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds) 
         }
-
         // Start the recurring task
         handler.post(runnable!!)
-        handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds)
+        
     }
 
     override fun onPause() {
