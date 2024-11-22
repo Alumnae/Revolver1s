@@ -316,37 +316,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecurringTimer() {
-        runnable = object : Runnable {
-            override fun run() {
-                val currentTime = System.currentTimeMillis()
-                val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1)
-                if (isPlaying) {
+    runnable = object : Runnable {
+        override fun run() {
+            val currentTime = System.currentTimeMillis()
+            val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1)
+            if (isPlaying) {
                     nextSwitch.setText("Next switch in $timeRemaining seconds")
                 } else {
                     nextSwitch.setText("Switching paused.")
-                }
-
-                for (i in 1..simSlots) {
-                    if (simSlotIds["SIM$i"] != null) {
-                        val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
-                        if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
-                            val edit = sharedPreferences.edit()
-                            edit.putBoolean("SIM$i", simSlotN.isChecked)
-                            edit.apply()
-                        }
-                        simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
-                    }
-                }
-                // Post the runnable to run again after 1 second
-                handler.postDelayed(this, 1)
-                        
             }
-            handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds) 
+
+            for (i in 1..simSlots) {
+                if (simSlotIds["SIM$i"] != null) {
+                    val simSlotN: CheckBox = findViewById(simSlotIds["SIM$i"]!!)
+                    if (sharedPreferences.getBoolean("SIM$i", true) != simSlotN.isChecked) {
+                        val edit = sharedPreferences.edit()
+                        edit.putBoolean("SIM$i", simSlotN.isChecked)
+                        edit.apply()
+                    }
+simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
+                }
+            }
+
+            // Post enqueueSwitch with a delay
+            handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds)
+
+            // Post the runnable to run again after 1 second
+            handler.postDelayed(this, 1)
         }
-        // Start the recurring task
-        handler.post(runnable!!)
-        
     }
+
+    // Start the recurring task
+    handler.post(runnable!!)
+
+}
 
     override fun onPause() {
         super.onPause()
