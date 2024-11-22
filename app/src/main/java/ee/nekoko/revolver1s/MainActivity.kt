@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         Log.e("Main", "Main has run")
-        enqueueSwitch()
+        startRecurringTimer()
     }
 
     private fun initialize() {
@@ -137,7 +137,7 @@ class MainActivity : AppCompatActivity() {
         val editor = sharedPreferences.edit()
         editor.putLong("nextSwitch", nextSwitchTime)
         editor.apply()
-
+        startRecurringTimer()
         if (_seService == null) {
             CoroutineScope(Dispatchers.IO).launch {
                 lock.withLock {
@@ -337,12 +337,7 @@ class MainActivity : AppCompatActivity() {
 simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
                 }
             }
-
-            // Post enqueueSwitch with a delay
-            handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds)
-
-            // Post the runnable to run again after 1 second
-            handler.postDelayed(this, 1)
+            handler.postDelayed(this, 100)
         }
     }
 
