@@ -316,7 +316,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecurringTimer() {
-    runnable = object : Runnable {
         override fun run() {
             val currentTime = System.currentTimeMillis()
             val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1)
@@ -334,16 +333,11 @@ class MainActivity : AppCompatActivity() {
                         edit.putBoolean("SIM$i", simSlotN.isChecked)
                         edit.apply()
                     }
-simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
+                    simSlotN.setText("SIM$i: ${sharedPreferences.getString("next_SIM$i", "Pending Switch")}")
                 }
             }
-            handler.postDelayed(this, 100)
+            handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds) 
         }
-    }
-
-    // Start the recurring task
-    handler.post(runnable!!)
-
 }
 
     override fun onPause() {
