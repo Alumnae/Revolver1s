@@ -113,7 +113,6 @@ class MainActivity : AppCompatActivity() {
         }
         Log.e("Main", "Main has run")
         enqueueSwitch()
-        startRecurringTimer()
     }
 
     private fun initialize() {
