@@ -338,7 +338,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 // Post the runnable to run again after 1 second
-                handler.postDelayed(this, 10)
+                handler.postDelayed(this, intervalInMilliSeconds)
                 enqueueSwitch()
             }
         }
