@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private var isPlaying = true
     private var countDownTimer: CountDownTimer? = null
     private var intervalInMilliSeconds: Long = 0 // Ensure this is var
+    private var nextSwitchTime: Long = 0 // don't init
     private lateinit var intervalInput: EditText
     private lateinit var saveButton: Button
     private lateinit var resultText: TextView
@@ -137,7 +138,7 @@ class MainActivity : AppCompatActivity() {
         val editor = sharedPreferences.edit()
         editor.putLong("nextSwitch", nextSwitchTime)
         editor.apply()
-        
+
         if (_seService == null) {
             CoroutineScope(Dispatchers.IO).launch {
                 lock.withLock {
