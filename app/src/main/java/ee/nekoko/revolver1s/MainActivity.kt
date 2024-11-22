@@ -316,7 +316,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecurringTimer() {
-        override fun run() {
+
             val currentTime = System.currentTimeMillis()
             val timeRemaining = ((sharedPreferences.getLong("nextSwitch", currentTime) - currentTime) / 1)
             if (isPlaying) {
@@ -337,7 +337,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             handler.postDelayed({ enqueueSwitch() }, intervalInMilliSeconds) 
-        }
+        
 }
 
     override fun onPause() {
